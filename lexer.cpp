@@ -3,44 +3,41 @@
 #include <cctype>
 #include <unordered_map>
 
-// Constructor for the Lexer class
 Lexer::Lexer(const std::string& filename, const std::string& text)
     : filename(filename), text(text), pos(0) {
     current_char = text[pos];
 }
 
-// Advance the `pos` and update the `current_char`
 void Lexer::advance() {
     pos++;
     current_char = pos < text.size() ? text[pos] : '\0';
 }
 
-// Skip whitespace characters
 void Lexer::skip_whitespace() {
-    while (isspace(current_char)) {
+    while (current_char == ' ' || current_char == '\t' || current_char == '\r') {
         advance();
     }
 }
 
-// Make a number token (integer and float support)
 Token Lexer::make_number() {
+    size_t start = pos;
     std::string num_str;
     bool has_dot = false;
 
     while (isdigit(current_char) || current_char == '.') {
         if (current_char == '.') {
-            if (has_dot) break; // Only one dot allowed
+            if (has_dot) break;
             has_dot = true;
         }
         num_str += current_char;
         advance();
     }
 
-    return Token(TokenType::NUMBER, num_str, pos);
+    return Token(TokenType::NUMBER, num_str, start);
 }
 
-// Make an identifier or keyword token
 Token Lexer::make_identifier() {
+    size_t start = pos;
     std::string id_str;
 
     while (isalnum(current_char) || current_char == '_') {
@@ -48,54 +45,62 @@ Token Lexer::make_identifier() {
         advance();
     }
 
-    // Recognize specific keywords
     static std::unordered_map<std::string, TokenType> keywords = {
-        {"print", TokenType::PRINT}  // Recognize 'print' as PRINT token
+        {"print", TokenType::PRINT},
+        {"let", TokenType::LET},
+        {"trace", TokenType::TRACE},
+        {"times", TokenType::TIMES},
+        {"read", TokenType::READ},
+        {"rand", TokenType::RAND},
+        {"sleep", TokenType::SLEEP}
     };
 
-    // Check if identifier is a keyword, otherwise it's an identifier
     TokenType type = keywords.count(id_str) ? keywords[id_str] : TokenType::IDENTIFIER;
-
-    return Token(type, id_str, pos);
+    return Token(type, id_str, start);
 }
 
-// Make a string token
 Token Lexer::make_string() {
+    size_t start = pos;
     std::string str_val;
-    advance(); // Skip the opening quote
+    advance();
 
     while (current_char != '"' && current_char != '\0') {
         str_val += current_char;
         advance();
     }
 
-    advance(); // Skip the closing quote
-    return Token(TokenType::STRING, str_val, pos);
+    if (current_char == '"') advance();
+    return Token(TokenType::STRING, str_val, start);
 }
 
-// Make a token for operators or unknown characters
 Token Lexer::make_operator() {
     char op_char = current_char;
+    size_t start = pos;
     advance();
 
     switch (op_char) {
-        case '+': return Token(TokenType::PLUS, "+", pos);
-        case '-': return Token(TokenType::MINUS, "-", pos);
-        case '*': return Token(TokenType::MULTIPLY, "*", pos);
-        case '/': return Token(TokenType::DIVIDE, "/", pos);
-        case '(': return Token(TokenType::LPAREN, "(", pos);
-        case ')': return Token(TokenType::RPAREN, ")", pos);
-        default:  return Token(TokenType::UNKNOWN, std::string(1, op_char), pos);
+        case '+': return Token(TokenType::PLUS, "+", start);
+        case '-': return Token(TokenType::MINUS, "-", start);
+        case '*': return Token(TokenType::MULTIPLY, "*", start);
+        case '/': return Token(TokenType::DIVIDE, "/", start);
+        case '%': return Token(TokenType::MODULO, "%", start);
+        case '(': return Token(TokenType::LPAREN, "(", start);
+        case ')': return Token(TokenType::RPAREN, ")", start);
+        case '=': return Token(TokenType::EQUALS, "=", start);
+        case ';': return Token(TokenType::SEMICOLON, ";", start);
+        default:  return Token(TokenType::UNKNOWN, std::string(1, op_char), start);
     }
 }
 
-// Generate tokens from the input text
 std::pair<std::vector<Token>, Error> Lexer::make_tokens() {
     std::vector<Token> tokens;
 
     while (current_char != '\0') {
-        if (isspace(current_char)) {
+        if (current_char == ' ' || current_char == '\t' || current_char == '\r') {
             skip_whitespace();
+        } else if (current_char == '\n') {
+            tokens.push_back(Token(TokenType::NEWLINE, "\\n", pos));
+            advance();
         } else if (isdigit(current_char)) {
             tokens.push_back(make_number());
         } else if (isalpha(current_char)) {
@@ -107,5 +112,5 @@ std::pair<std::vector<Token>, Error> Lexer::make_tokens() {
         }
     }
 
-    return { tokens, Error() };  // No errors
+    return { tokens, Error() };
 }

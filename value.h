@@ -2,28 +2,36 @@
 #pragma once
 #include <string>
 
+enum class ValueType {
+    Undefined,
+    Number,
+    String
+};
+
 class Value {
 private:
-    double number_value;  // Numeric value representation
-    bool is_number_type;  // Flag to indicate if the value is a number
+    ValueType type_;
+    double number_value_;
+    std::string string_value_;
 
 public:
-    // Constructors
     Value();
-    Value(double number);
+    explicit Value(double number);
+    explicit Value(const std::string& string);
 
-    // Checks if the value is a number
+    ValueType type() const;
     bool is_number() const;
+    bool is_string() const;
+    bool is_defined() const;
 
-    // Retrieves the numeric value
     double get_number() const;
+    const std::string& get_string() const;
 
-    // Converts the value to a string representation
     std::string to_string() const;
 
-    // Operator overloads for arithmetic operations
     Value operator+(const Value& other) const;
     Value operator-(const Value& other) const;
     Value operator*(const Value& other) const;
     Value operator/(const Value& other) const;
+    Value operator%(const Value& other) const;
 };

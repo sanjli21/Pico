@@ -1,0 +1,9 @@
+print "Rolling a d6..."
+sleep 250
+let roll = rand 6
+print roll
+
+print "Guess a number 1-10 (type it and press Enter):"
+let guess = read
+print "You typed:"
+print guess
