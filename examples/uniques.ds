@@ -1,0 +1,9 @@
+let base = 7
+print base
+trace (base + 3) * 2
+
+3 times print "pico"
+print that
+
+2 times print 9
+print that + 1

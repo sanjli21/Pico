@@ -1,4 +1,3 @@
-// parser.h
 #ifndef PARSER_H
 #define PARSER_H
 
@@ -12,11 +11,17 @@ class Parser {
 public:
     Parser(const std::vector<Token>& tokens);
     std::pair<std::shared_ptr<Node>, Error> parse();
-    std::shared_ptr<Node> parse_statement();  // Declare parse_statement here
 
 private:
     void advance();
+    void skip_separators();
+    Token peek(size_t ahead) const;
+
+    std::shared_ptr<Node> parse_statement();
+    std::shared_ptr<Node> let_statement();
+    std::shared_ptr<Node> assign_statement();
     std::shared_ptr<Node> print_statement();
+    std::shared_ptr<Node> trace_statement();
     std::shared_ptr<Node> factor();
     std::shared_ptr<Node> term();
     std::shared_ptr<Node> expression();
@@ -26,4 +31,4 @@ private:
     Token current_token;
 };
 
-#endif // PARSER_H
+#endif

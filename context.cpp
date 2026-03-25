@@ -9,3 +9,10 @@ Context::Context(const std::string& display_name, std::shared_ptr<Context> paren
 void Context::set_symbol_table(std::shared_ptr<SymbolTable> new_symbol_table) {
     symbol_table = new_symbol_table;
 }
+
+void Context::set_that(const Value& v) {
+    if (v.is_defined()) {
+        that_value = v;
+        has_that = true;
+    }
+}

@@ -4,4 +4,9 @@
 #include "value.h"
 #include "error.h"
 
-std::pair<Value, Error> run(const std::string& filename, const std::string& code);
+struct RunOptions {
+    bool dump_tokens = false;
+};
+
+std::pair<Value, Error> run(const std::string& filename, const std::string& code,
+                            const RunOptions& options = RunOptions{});

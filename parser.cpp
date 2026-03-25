@@ -1,8 +1,6 @@
 // parser.cpp
 #include "parser.h"
-#include <iostream>  // For std::cerr and std::endl
 
-// Constructor for the Parser class
 Parser::Parser(const std::vector<Token>& tokens)
     : tokens(tokens), pos(0), current_token(Token(TokenType::UNKNOWN, "", 0)) {
     if (!tokens.empty()) {
@@ -10,117 +8,260 @@ Parser::Parser(const std::vector<Token>& tokens)
     }
 }
 
-// Advance to the next token
 void Parser::advance() {
     pos++;
     if (pos < tokens.size()) {
         current_token = tokens[pos];
+    } else {
+        current_token = Token(TokenType::UNKNOWN, "", tokens.empty() ? 0 : tokens.back().position);
     }
 }
 
-// Parse a print statement
+void Parser::skip_separators() {
+    while (pos < tokens.size() &&
+           (current_token.type == TokenType::NEWLINE || current_token.type == TokenType::SEMICOLON)) {
+        advance();
+    }
+}
+
+Token Parser::peek(size_t ahead) const {
+    size_t i = pos + ahead;
+    if (i >= tokens.size()) {
+        return Token(TokenType::UNKNOWN, "", tokens.empty() ? 0 : tokens.back().position);
+    }
+    return tokens[i];
+}
+
 std::shared_ptr<Node> Parser::print_statement() {
-    if (current_token.type == TokenType::PRINT) {
-        advance();  // Skip the 'PRINT' token
-
-        // Expect an expression after 'PRINT'
-        auto expr = expression();  // Parse the expression to print
-
-        if (!expr) {
-            std::cerr << "Error: Expected an expression after 'print'" << std::endl;
-            return nullptr;
-        }
-
-        return std::make_shared<PrintNode>(expr);  // Return the print node
-    } else {
-        std::cerr << "Error: 'print_statement' called without PRINT token" << std::endl;
+    if (current_token.type != TokenType::PRINT) {
         return nullptr;
     }
+    advance();
+    auto expr = expression();
+    if (!expr) {
+        return nullptr;
+    }
+    return std::make_shared<PrintNode>(expr);
 }
 
-// Parse a factor (numbers, expressions in parentheses)
+std::shared_ptr<Node> Parser::trace_statement() {
+    if (current_token.type != TokenType::TRACE) {
+        return nullptr;
+    }
+    advance();
+    auto expr = expression();
+    if (!expr) {
+        return nullptr;
+    }
+    return std::make_shared<TraceNode>(expr);
+}
+
+std::shared_ptr<Node> Parser::let_statement() {
+    if (current_token.type != TokenType::LET) {
+        return nullptr;
+    }
+    advance();
+    if (current_token.type != TokenType::IDENTIFIER) {
+        return nullptr;
+    }
+    std::string name = current_token.value;
+    if (name == "that") {
+        return nullptr;
+    }
+    advance();
+    if (current_token.type != TokenType::EQUALS) {
+        return nullptr;
+    }
+    advance();
+    auto expr = expression();
+    if (!expr) {
+        return nullptr;
+    }
+    return std::make_shared<LetNode>(name, expr);
+}
+
+std::shared_ptr<Node> Parser::assign_statement() {
+    if (current_token.type != TokenType::IDENTIFIER) {
+        return nullptr;
+    }
+    if (peek(1).type != TokenType::EQUALS) {
+        return nullptr;
+    }
+    std::string name = current_token.value;
+    if (name == "that") {
+        return nullptr;
+    }
+    advance();
+    advance();
+    auto expr = expression();
+    if (!expr) {
+        return nullptr;
+    }
+    return std::make_shared<AssignNode>(name, expr);
+}
+
 std::shared_ptr<Node> Parser::factor() {
     Token token = current_token;
+
+    if (token.type == TokenType::MINUS) {
+        advance();
+        auto inner = factor();
+        if (!inner) {
+            return nullptr;
+        }
+        return std::make_shared<UnaryMinusNode>(inner);
+    }
+
+    if (token.type == TokenType::READ) {
+        Token at = token;
+        advance();
+        return std::make_shared<ReadNode>(at);
+    }
+
+    if (token.type == TokenType::RAND) {
+        Token at = token;
+        advance();
+        auto hi = factor();
+        if (!hi) {
+            return nullptr;
+        }
+        return std::make_shared<RandNode>(at, hi);
+    }
+
+    if (token.type == TokenType::SLEEP) {
+        Token at = token;
+        advance();
+        auto ms = factor();
+        if (!ms) {
+            return nullptr;
+        }
+        return std::make_shared<SleepNode>(at, ms);
+    }
 
     if (token.type == TokenType::NUMBER) {
         advance();
         return std::make_shared<NumberNode>(token);
-    } 
-    else if (token.type == TokenType::LPAREN) {
-        advance();  // Skip '('
-        auto expr = expression();  // Parse the expression inside parentheses
-        if (current_token.type == TokenType::RPAREN) {
-            advance();  // Skip ')'
-            return expr;
-        } else {
-            std::cerr << "Error: Expected closing parenthesis" << std::endl;
-            return nullptr;
-        }
     }
 
-    std::cerr << "Error: Unexpected factor of type " << static_cast<int>(token.type) 
-              << " with value '" << token.value << "'" << std::endl;  // Improved error handling
-    return nullptr;  // Handle invalid factor error
-}
+    if (token.type == TokenType::STRING) {
+        advance();
+        return std::make_shared<StringNode>(token);
+    }
 
-// Parse terms (handles multiplication and division)
-std::shared_ptr<Node> Parser::term() {
-    auto left = factor();  // Start with a factor
+    if (token.type == TokenType::IDENTIFIER) {
+        advance();
+        return std::make_shared<VarNode>(token);
+    }
 
-    while (current_token.type == TokenType::MULTIPLY || current_token.type == TokenType::DIVIDE) {
-        Token op = current_token;
-        advance();  // Skip operator
-        auto right = factor();  // Parse the right-hand side factor
-        if (!right) {
-            std::cerr << "Error: Expected a factor after operator" << std::endl;
+    if (token.type == TokenType::LPAREN) {
+        advance();
+        auto expr = expression();
+        if (!expr) {
             return nullptr;
         }
-        left = std::make_shared<BinOpNode>(left, op, right);  // Build binary operation node
+        if (current_token.type != TokenType::RPAREN) {
+            return nullptr;
+        }
+        advance();
+        return expr;
+    }
+
+    return nullptr;
+}
+
+std::shared_ptr<Node> Parser::term() {
+    auto left = factor();
+    if (!left) {
+        return nullptr;
+    }
+
+    while (current_token.type == TokenType::MULTIPLY || current_token.type == TokenType::DIVIDE ||
+           current_token.type == TokenType::MODULO) {
+        Token op = current_token;
+        advance();
+        auto right = factor();
+        if (!right) {
+            return nullptr;
+        }
+        left = std::make_shared<BinOpNode>(left, op, right);
     }
 
     return left;
 }
 
-// Parse expressions (handles addition and subtraction)
 std::shared_ptr<Node> Parser::expression() {
-    auto left = term();  // Start with a term
+    auto left = term();
+    if (!left) {
+        return nullptr;
+    }
 
     while (current_token.type == TokenType::PLUS || current_token.type == TokenType::MINUS) {
         Token op = current_token;
-        advance();  // Skip operator
-        auto right = term();  // Parse the right-hand side term
+        advance();
+        auto right = term();
         if (!right) {
-            std::cerr << "Error: Expected a term after operator" << std::endl;
             return nullptr;
         }
-        left = std::make_shared<BinOpNode>(left, op, right);  // Build binary operation node
+        left = std::make_shared<BinOpNode>(left, op, right);
     }
 
     return left;
 }
 
-// Parse statements (distinguishes between statements and expressions)
 std::shared_ptr<Node> Parser::parse_statement() {
     if (current_token.type == TokenType::PRINT) {
-        return print_statement();  // Handle print statement
+        return print_statement();
+    }
+    if (current_token.type == TokenType::LET) {
+        return let_statement();
+    }
+    if (current_token.type == TokenType::TRACE) {
+        return trace_statement();
+    }
+    if (current_token.type == TokenType::IDENTIFIER && peek(1).type == TokenType::EQUALS) {
+        return assign_statement();
     }
 
-    // If no specific statement, fallback to parsing as an expression
-    return expression();
+    auto expr = expression();
+    if (!expr) {
+        return nullptr;
+    }
+    if (current_token.type == TokenType::TIMES) {
+        advance();
+        auto body = parse_statement();
+        if (!body) {
+            return nullptr;
+        }
+        return std::make_shared<TimesNode>(expr, body);
+    }
+    return expr;
 }
 
-// Main parse function that starts parsing from the statement level
 std::pair<std::shared_ptr<Node>, Error> Parser::parse() {
-    if (tokens.empty()) {
-        return { nullptr, Error("No tokens to parse", 0) };  // Handle empty input
+    skip_separators();
+    if (pos >= tokens.size()) {
+        return { nullptr, Error("Empty program", 0) };
     }
 
-    auto result = parse_statement();  // Start parsing from the statement level
+    std::vector<std::shared_ptr<Node>> statements;
 
-    // Ensure all tokens were consumed; if not, handle unexpected tokens
-    if (pos < tokens.size()) {
-        return { nullptr, Error("Unexpected token", tokens[pos].position) };
+    while (pos < tokens.size()) {
+        skip_separators();
+        if (pos >= tokens.size()) {
+            break;
+        }
+
+        auto stmt = parse_statement();
+        if (!stmt) {
+            return { nullptr, Error("Syntax error", current_token.position) };
+        }
+        statements.push_back(stmt);
+        skip_separators();
     }
 
-    return std::make_pair(result, Error());  // Return the parsed result with no errors
+    if (statements.empty()) {
+        return { nullptr, Error("Empty program", 0) };
+    }
+
+    return { std::make_shared<ProgramNode>(std::move(statements)), Error() };
 }

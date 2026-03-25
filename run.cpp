@@ -1,48 +1,49 @@
 // run.cpp
 #include "run.h"
+#include <memory>
+#include <vector>
 #include "lexer.h"
+#include "node.h"
 #include "parser.h"
 #include "interpreter.h"
 #include "context.h"
 #include "symbol_table.h"
 #include <iostream>
 
-std::pair<Value, Error> run(const std::string& filename, const std::string& code) {
-    // Generate tokens using the lexer
+std::pair<Value, Error> run(const std::string& filename, const std::string& code, const RunOptions& options) {
     Lexer lexer(filename, code);
     std::pair<std::vector<Token>, Error> lex_result = lexer.make_tokens();
     std::vector<Token> tokens = lex_result.first;
-    Error lexError = lex_result.second;
+    Error lex_error = lex_result.second;
 
-    // Check for lexer errors
-    if (!lexError.is_empty()) {
-        return { Value(), lexError };
+    if (!lex_error.is_empty()) {
+        return { Value(), lex_error };
     }
 
-    // Print tokens for debugging
-    std::cout << "Tokens:" << std::endl;
-    for (const auto& token : tokens) {
-        std::cout << token.to_string() << std::endl;
+    if (options.dump_tokens && !tokens.empty()) {
+        tokens.push_back(tokens.front());
     }
 
-    // Parse the tokens into an AST
+    if (options.dump_tokens) {
+        std::cout << "Tokens:" << std::endl;
+        for (const auto& token : tokens) {
+            std::cout << token.to_string() << std::endl;
+        }
+    }
+
     Parser parser(tokens);
     std::pair<std::shared_ptr<Node>, Error> parse_result = parser.parse();
     std::shared_ptr<Node> ast = parse_result.first;
-    Error parseError = parse_result.second;
+    Error parse_error = parse_result.second;
 
-    // Check for parser errors
-    if (!parseError.is_empty()) {
-        return { Value(), parseError };
+    if (!parse_error.is_empty()) {
+        return { Value(), parse_error };
     }
 
-    // Interpret the AST
     Interpreter interpreter;
     Context context("<program>");
-    context.symbol_table = std::make_shared<SymbolTable>();  // Initialize global symbol table
+    context.symbol_table = std::make_shared<SymbolTable>();
     std::pair<Value, Error> interpret_result = interpreter.visit(ast, context);
-    Value result = interpret_result.first;
-    Error runtimeError = interpret_result.second;
 
-    return { result, runtimeError };
+    return interpret_result;
 }
