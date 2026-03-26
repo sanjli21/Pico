@@ -298,7 +298,7 @@ std::pair<Value, Error> Interpreter::visit_SleepNode(std::shared_ptr<SleepNode> 
         return { Value(), Error("sleep needs a number of milliseconds", node->at.position) };
     }
     double ms = ms_r.first.get_number();
-    if (std::floor(ms) != ms || ms > 86400000) {
+    if (std::floor(ms) != ms || ms < 0 || ms > 86400000) {
         return { Value(), Error("sleep ms expects a whole number from 0 to 86400000 (24 hours)", node->at.position) };
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(ms)));
