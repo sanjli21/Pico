@@ -18,6 +18,9 @@ void trim_line(std::string& s) {
     while (!s.empty() && std::isspace(static_cast<unsigned char>(s.front()))) {
         s.erase(s.begin());
     }
+    while (!s.empty() && std::isspace(static_cast<unsigned char>(s.back()))) {
+        s.pop_back();
+    }
 }
 
 Value value_from_input_line(const std::string& line) {
