@@ -20,9 +20,7 @@ std::pair<Value, Error> run(const std::string& filename, const std::string& code
         return { Value(), lex_error };
     }
 
-    if (options.dump_tokens && !tokens.empty()) {
-        tokens.push_back(tokens.front());
-    }
+    // ✅ FIX: Removed token stream mutation (no push_back of first token)
 
     if (options.dump_tokens) {
         std::cout << "Tokens:" << std::endl;
@@ -43,6 +41,7 @@ std::pair<Value, Error> run(const std::string& filename, const std::string& code
     Interpreter interpreter;
     Context context("<program>");
     context.symbol_table = std::make_shared<SymbolTable>();
+
     std::pair<Value, Error> interpret_result = interpreter.visit(ast, context);
 
     return interpret_result;
