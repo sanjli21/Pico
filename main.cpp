@@ -6,7 +6,7 @@
 #include "run.h"
 
 static constexpr const char* kVersion = "0.4.0";
-static constexpr const char* kDefaultSource = "tests.ds";
+static constexpr const char* kDefaultSource = "test.ds";
 
 /// True if the last path segment already contains a dot (e.g. `foo.ds`, `a.b`).
 static bool basename_has_extension(const std::string& path) {
